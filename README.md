@@ -1,2 +1,2 @@
 # Dehaze_particle_image
-dehaze for particle images
+A sample implementation of the proposed method for particle images defogging.
