@@ -49,7 +49,6 @@ if aaa>1
    I(1:chang,1:kuan,1:3,ccc)  = cat(3,im,im,im);    
    ccc=ccc+1;
    end
-   
 end
 aaa=aaa+1;
 end
@@ -68,7 +67,6 @@ for n = 1 : N
     imgs_rgb(:,:,:,n) = I(:,:,:,idx(n));
 end
 imgs_rgb = imgs_rgb/255.0;
-imgs_lum = rgb2lum(imgs_rgb);
 w1 = get_weight11(imgs_lum);
 w2 =1;
 p1 = 1;
@@ -76,7 +74,6 @@ p2 = 1;
 w = (w1.^p1).*(w2.^p2);
 w = refine_weight(w);
 lev = 5;
-
 img_result = fusion_pyramid(imgs_rgb, w, lev);
 output=uint8(255.*img_result(:,:,1)); 
 end
@@ -176,9 +173,44 @@ if ndims(img) == 3
 else
     dc = img;
 end
+%***********最小值滤波****************************、、
 r_win=r;
 last=r_win*r_win;
 middle=(last+1)/2;
 dc_mid=ordfilt2(dc,middle,ones(r_win,r_win),'symmetric');
 output=dc_mid;
 end
+
+function weight_out = refine_weight(weight_in)
+
+[H,W,N] = size(weight_in);
+weight_out = zeros(H,W,N);
+
+for n = 1 : N
+    weight_out(:,:,n) = imgaussfilt(weight_in(:,:,n), 5);
+end
+end
+
+function result = fusion_pyramid(imgs, weights, lev)
+[H,W,C,N] = size(imgs);
+if(~exist('lev', 'var')),
+    lev = floor(log(min(H,W)) / log(2));
+end
+% normalize weight
+weights = weights + 1e-12; %avoids division by zero
+weights = weights./repmat(sum(weights,3),[1 1 N]);
+% create empty pyramid
+pyr = gaussian_pyramid(zeros(H,W,C),lev);
+% nlev = length(pyr);
+% multiresolution blending
+for n = 1 : N
+    % construct pyramid from each input image
+	pyrW = gaussian_pyramid(weights(:,:,n),lev);
+    pyrI = laplacian_pyramid(imgs(:,:,:,n),lev);
+    for l = 1:lev
+        w = repmat(pyrW{l},[1 1 C]);
+        pyr{l} = pyr{l} + w.*pyrI{l};
+    end
+end                                     
+end
+
